@@ -4,7 +4,7 @@ import { useProjectStore } from '@/store/projectStore';
 import { startAudioContext, NOTES } from '@/lib/audio';
 
 export function TopBar() {
-  const { bpm, key, scale, vibe, setBpm, setKey } = useProjectStore();
+  const { bpm, key, scale, vibe, loopBars, setBpm, setKey, setLoopBars } = useProjectStore();
   const [playing, setPlaying] = useState(false);
 
   const handlePlay = async () => {
@@ -65,6 +65,19 @@ export function TopBar() {
       <div className="flex items-center gap-2 bg-surface-low rounded px-2 py-1.5">
         <span className="text-[9px] text-white/40 uppercase tracking-wider">SCALE</span>
         <span className="text-[10px] text-white/70 uppercase">{scale.replace(/_/g, ' ')}</span>
+      </div>
+
+      {/* Loop bars */}
+      <div className="flex items-center gap-1 bg-surface-low rounded px-2 py-1.5">
+        <span className="text-[9px] text-white/40 uppercase tracking-wider mr-1">LOOP</span>
+        {([4, 8, 16] as const).map(b => (
+          <button key={b} onClick={() => setLoopBars(b)}
+            className="px-2 py-0.5 rounded text-[9px] font-black cursor-pointer transition-all"
+            style={{ background: loopBars === b ? '#e9c34922' : 'transparent', border: `1px solid ${loopBars === b ? '#e9c349' : 'transparent'}`, color: loopBars === b ? '#e9c349' : '#ffffff44' }}>
+            {b}
+          </button>
+        ))}
+        <span className="text-[9px] text-white/40 uppercase tracking-wider">BAR</span>
       </div>
 
       {/* Vibe */}

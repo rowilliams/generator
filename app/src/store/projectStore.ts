@@ -53,6 +53,7 @@ export interface ProjectStore {
   drumTracks: Record<Section, DrumTrack[]>;
   drumSteps: number;
   drumSwing: number;
+  loopBars: 4 | 8 | 16;
 
   // Chord engine
   chordProgressions: Record<Section, ChordSlot[]>;
@@ -68,11 +69,12 @@ export interface ProjectStore {
   setDrumVelocity: (section: Section, trackIdx: number, stepIdx: number, vel: number) => void;
   toggleDrumMute: (section: Section, trackIdx: number) => void;
   setDrumSwing: (swing: number) => void;
+  setLoopBars: (bars: 4 | 8 | 16) => void;
   setChordSlot: (section: Section, slotIdx: number, chord: ChordSlot) => void;
 }
 
 const SECTIONS: Section[] = ['intro', 'verse', 'prehook', 'hook', 'bridge', 'outro'];
-const DRUM_STEPS = 16;
+const DRUM_STEPS = 256; // max capacity: 16 bars × 16 steps
 
 const DEFAULT_TRACKS: DrumTrack[] = [
   { name: '808 KICK', color: '#ff3333', steps: Array(DRUM_STEPS).fill(null).map(() => ({ active: false, velocity: 100 })), muted: false, solo: false, volume: 100 },
@@ -105,6 +107,7 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   drumTracks: makeDefaultDrums(),
   drumSteps: DRUM_STEPS,
   drumSwing: 0,
+  loopBars: 4,
   chordProgressions: makeDefaultChords(),
 
   setBpm: (bpm) => set({ bpm }),
@@ -149,6 +152,7 @@ export const useProjectStore = create<ProjectStore>((set) => ({
     }),
 
   setDrumSwing: (drumSwing) => set({ drumSwing }),
+  setLoopBars: (loopBars) => set({ loopBars }),
 
   setChordSlot: (section, slotIdx, chord) =>
     set((state) => {

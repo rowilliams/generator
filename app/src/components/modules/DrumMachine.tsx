@@ -38,7 +38,8 @@ const KIT_TRACKS: Record<KitMode, string[]> = {
 };
 
 export function DrumMachine() {
-  const { drumTracks, activeSection, bpm, toggleDrumStep, toggleDrumMute, drumSwing, setDrumSwing } = useProjectStore();
+  const { drumTracks, activeSection, bpm, loopBars, toggleDrumStep, toggleDrumMute, drumSwing, setDrumSwing } = useProjectStore();
+  const totalSteps = loopBars * 16;
   const [kitMode, setKitMode] = useState<KitMode>('STANDARD');
   const [playing, setPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(-1);
@@ -56,6 +57,8 @@ export function DrumMachine() {
   const visibleTracks = tracks.filter(t => visibleNames.includes(t.name));
   const visibleTracksRef = useRef(visibleTracks);
   visibleTracksRef.current = visibleTracks;
+  const totalStepsRef = useRef(totalSteps);
+  totalStepsRef.current = totalSteps;
 
   const stopSequencer = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -77,7 +80,7 @@ export function DrumMachine() {
           playDrumHit(track.name, track.steps[step].velocity);
         }
       });
-      stepRef.current = (step + 1) % 16;
+      stepRef.current = (step + 1) % totalStepsRef.current;
     }, ms);
     setPlaying(true);
   }, [bpm, probValues]);
@@ -129,60 +132,90 @@ export function DrumMachine() {
           <Knob value={drumSwing} min={0} max={100} label="SWING" color="#e9c349" onChange={setDrumSwing} size={42} />
         </div>
 
-        <div className="flex-1 overflow-y-auto flex flex-col gap-2">
-          {/* Bar markers */}
-          <div className="flex ml-[120px] gap-1 mb-1">
-            {Array.from({ length: 16 }).map((_, i) => (
-              <div key={i} className="flex-1 text-center">
-                {i % 4 === 0 && <span className="text-[8px] text-white/20">{i / 4 + 1}</span>}
+        <div className="flex-1 overflow-y-auto flex flex-col gap-2 min-w-0">
+          {/* Scrollable step area */}
+          <div className="flex gap-2 min-w-0">
+            {/* Sticky track labels */}
+            <div className="w-[120px] shrink-0 flex flex-col gap-2">
+              {/* Bar header spacer */}
+              <div className="h-4" />
+              {visibleTracks.map((track) => {
+                const realIdx = tracks.findIndex(t => t.name === track.name);
+                const isSelected = selectedTrack === track.name;
+                return (
+                  <div key={track.name} className="h-8 flex items-center gap-1">
+                    <button onClick={() => toggleDrumMute(activeSection, realIdx)}
+                      className="w-5 h-5 rounded text-[8px] font-bold transition-all cursor-pointer shrink-0"
+                      style={{ background: track.muted ? '#ff333333' : '#25242833', border: `1px solid ${track.muted ? '#ff3333' : '#353437'}`, color: track.muted ? '#ff3333' : '#ffffff44' }}
+                    >M</button>
+                    <button onClick={() => setSelectedTrack(isSelected ? null : track.name)}
+                      className="text-[9px] font-bold uppercase tracking-wider text-left flex-1 cursor-pointer hover:opacity-80 transition-opacity truncate"
+                      style={{ color: isSelected ? '#fff' : track.color }}
+                    >{track.name}</button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Scrollable grid */}
+            <div className="flex-1 overflow-x-auto min-w-0">
+              <div style={{ width: totalSteps * 21, minWidth: '100%' }}>
+                {/* Bar markers */}
+                <div className="flex mb-1 gap-px h-4 items-center">
+                  {Array.from({ length: totalSteps }).map((_, i) => (
+                    <div key={i} className="flex-none flex items-center justify-center" style={{ width: 20 }}>
+                      {i % 16 === 0 && (
+                        <span className="text-[8px] font-bold text-white/30">{i / 16 + 1}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Track rows */}
+                {visibleTracks.map((track) => {
+                  const realIdx = tracks.findIndex(t => t.name === track.name);
+                  const prob = probValues[track.name] ?? 100;
+                  return (
+                    <div key={track.name} className="flex gap-px mb-2">
+                      {Array.from({ length: totalSteps }).map((_, si) => {
+                        const step = track.steps[si];
+                        const isBeat = si % 4 === 0;
+                        const isBarStart = si % 16 === 0;
+                        const isCurrent = currentStep === si && playing;
+                        const active = step?.active ?? false;
+                        let bg = isBarStart ? '#2e2c35' : isBeat ? '#2a2930' : '#1c1b1e';
+                        if (isCurrent) bg = '#ffffff22';
+                        if (active) bg = track.color;
+                        return (
+                          <button key={si}
+                            onClick={() => toggleDrumStep(activeSection, realIdx, si)}
+                            className="flex-none h-8 rounded-sm transition-all duration-75 cursor-pointer"
+                            style={{ width: 20, background: bg, border: `1px solid ${active ? track.color : isBarStart ? '#454350' : isBeat ? '#353437' : '#252428'}`, boxShadow: active ? `0 0 5px ${track.color}88` : 'none', opacity: track.muted ? 0.3 : prob < 100 && active ? prob / 100 * 0.7 + 0.3 : 1 }}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            </div>
+
+            {/* Prob column */}
+            <div className="shrink-0 flex flex-col gap-2 w-8">
+              <div className="h-4" />
+              {visibleTracks.map((track) => {
+                const prob = probValues[track.name] ?? 100;
+                return (
+                  <div key={track.name} className="h-8 flex flex-col items-center justify-center text-[7px] text-white/30">
+                    <div className="font-mono leading-none">{prob}%</div>
+                    <input type="range" min={0} max={100} value={prob}
+                      onChange={e => setProbValues(p => ({ ...p, [track.name]: Number(e.target.value) }))}
+                      className="w-8 h-1 cursor-pointer" style={{ accentColor: track.color }} />
+                  </div>
+                );
+              })}
+            </div>
           </div>
-
-          {visibleTracks.map((track) => {
-            const realIdx = tracks.findIndex(t => t.name === track.name);
-            const prob = probValues[track.name] ?? 100;
-            const isSelected = selectedTrack === track.name;
-            return (
-              <div key={track.name} className="flex items-center gap-2">
-                <div className="w-[120px] shrink-0 flex items-center gap-1">
-                  <button onClick={() => toggleDrumMute(activeSection, realIdx)}
-                    className="w-5 h-5 rounded text-[8px] font-bold transition-all cursor-pointer"
-                    style={{ background: track.muted ? '#ff333333' : '#25242833', border: `1px solid ${track.muted ? '#ff3333' : '#353437'}`, color: track.muted ? '#ff3333' : '#ffffff44' }}
-                  >M</button>
-                  <button onClick={() => setSelectedTrack(isSelected ? null : track.name)}
-                    className="text-[9px] font-bold uppercase tracking-wider text-left flex-1 cursor-pointer hover:opacity-80 transition-opacity truncate"
-                    style={{ color: isSelected ? '#fff' : track.color }}
-                  >{track.name}</button>
-                </div>
-
-                <div className="flex-1 flex gap-1">
-                  {track.steps.map((step, si) => {
-                    const isBar = si % 4 === 0;
-                    const isCurrent = currentStep === si && playing;
-                    let bg = isBar ? '#2a2930' : '#1c1b1e';
-                    if (isCurrent) bg = '#ffffff22';
-                    if (step.active) bg = track.color;
-                    return (
-                      <button key={si}
-                        onClick={() => toggleDrumStep(activeSection, realIdx, si)}
-                        className="flex-1 h-8 rounded-sm transition-all duration-75 cursor-pointer"
-                        style={{ background: bg, border: `1px solid ${step.active ? track.color : isBar ? '#353437' : '#252428'}`, boxShadow: step.active ? `0 0 6px ${track.color}88` : 'none', opacity: track.muted ? 0.3 : prob < 100 && step.active ? prob / 100 * 0.7 + 0.3 : 1 }}
-                      />
-                    );
-                  })}
-                </div>
-
-                {/* Prob knob mini */}
-                <div className="text-[7px] text-white/30 w-8 text-center">
-                  <div className="font-mono">{prob}%</div>
-                  <input type="range" min={0} max={100} value={prob}
-                    onChange={e => setProbValues(p => ({ ...p, [track.name]: Number(e.target.value) }))}
-                    className="w-8 h-1 cursor-pointer" style={{ accentColor: track.color }} />
-                </div>
-              </div>
-            );
-          })}
         </div>
 
         {/* Sound design strip for selected track */}

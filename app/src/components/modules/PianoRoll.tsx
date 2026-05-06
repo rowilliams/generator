@@ -18,7 +18,6 @@ const OCTAVES = [6, 5, 4, 3, 2];
 const ALL_PITCHES: string[] = OCTAVES.flatMap(oct =>
   [...NOTES].reverse().map(n => `${n}${oct}`)
 );
-const STEPS = 64;
 const STEP_W = 20;
 const ROW_H = 14;
 
@@ -39,7 +38,8 @@ const MOTIF_TOOLS = [
 ];
 
 export function PianoRoll() {
-  const { key, scale, vibe } = useProjectStore();
+  const { key, scale, vibe, loopBars } = useProjectStore();
+  const STEPS = loopBars * 16;
   const [notes, setNotes] = useState<Note[]>([]);
   const [tool, setTool] = useState<Tool>('draw');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -230,7 +230,7 @@ export function PianoRoll() {
             })}
 
             {/* Bar markers */}
-            {Array.from({ length: 4 }).map((_, i) => (
+            {Array.from({ length: loopBars }).map((_, i) => (
               <div
                 key={i}
                 className="absolute top-0 text-[8px] text-white/20 font-bold pointer-events-none"
