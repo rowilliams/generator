@@ -8,6 +8,9 @@ import { ChordEngine } from '@/components/modules/ChordEngine';
 import { BassEngine } from '@/components/modules/BassEngine';
 import { GuitarEngine } from '@/components/modules/GuitarEngine';
 import { PianoRoll } from '@/components/modules/PianoRoll';
+import { FusionEngine } from '@/components/modules/FusionEngine';
+import { SampleIntelligenceCenter } from '@/components/modules/SampleIntelligenceCenter';
+import { DAWIntegrationHub } from '@/components/modules/DAWIntegrationHub';
 import { Placeholder } from '@/components/modules/Placeholder';
 
 const MODULE_MAP: Partial<Record<Module, React.ComponentType>> = {
@@ -17,6 +20,9 @@ const MODULE_MAP: Partial<Record<Module, React.ComponentType>> = {
   bass: BassEngine,
   guitar: GuitarEngine,
   melody: PianoRoll,
+  fusion: FusionEngine,
+  sample: SampleIntelligenceCenter,
+  export: DAWIntegrationHub,
 };
 
 export default function Home() {
