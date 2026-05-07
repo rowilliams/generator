@@ -14,6 +14,8 @@ import { DAWIntegrationHub } from '@/components/modules/DAWIntegrationHub';
 import { SynthEngine } from '@/components/modules/SynthEngine';
 import { MixerEngine } from '@/components/modules/MixerEngine';
 import { VocalEngine } from '@/components/modules/VocalEngine';
+import { OrchestraEngine } from '@/components/modules/OrchestraEngine';
+import { TimelineEngine } from '@/components/modules/TimelineEngine';
 import { Placeholder } from '@/components/modules/Placeholder';
 
 const MODULE_MAP: Partial<Record<Module, React.ComponentType>> = {
@@ -29,6 +31,8 @@ const MODULE_MAP: Partial<Record<Module, React.ComponentType>> = {
   synth: SynthEngine,
   mixer: MixerEngine,
   vocal: VocalEngine,
+  orchestra: OrchestraEngine,
+  timeline: TimelineEngine,
 };
 
 export default function Home() {
