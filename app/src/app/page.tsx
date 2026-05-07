@@ -11,6 +11,9 @@ import { PianoRoll } from '@/components/modules/PianoRoll';
 import { FusionEngine } from '@/components/modules/FusionEngine';
 import { SampleIntelligenceCenter } from '@/components/modules/SampleIntelligenceCenter';
 import { DAWIntegrationHub } from '@/components/modules/DAWIntegrationHub';
+import { SynthEngine } from '@/components/modules/SynthEngine';
+import { MixerEngine } from '@/components/modules/MixerEngine';
+import { VocalEngine } from '@/components/modules/VocalEngine';
 import { Placeholder } from '@/components/modules/Placeholder';
 
 const MODULE_MAP: Partial<Record<Module, React.ComponentType>> = {
@@ -23,6 +26,9 @@ const MODULE_MAP: Partial<Record<Module, React.ComponentType>> = {
   fusion: FusionEngine,
   sample: SampleIntelligenceCenter,
   export: DAWIntegrationHub,
+  synth: SynthEngine,
+  mixer: MixerEngine,
+  vocal: VocalEngine,
 };
 
 export default function Home() {

@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { useProjectStore } from '@/store/projectStore';
 import { SectionTabs } from '@/components/ui/SectionTabs';
 import { playNote, getScaleNotes } from '@/lib/audio';
+import { exportNotesMidi } from '@/lib/midi';
 import { Knob } from '@/components/ui/Knob';
 
 type GuitarStyle = 'metal_riff' | 'rhythm' | 'nu_metal' | 'funk' | 'jazz' | 'blues' | 'clean' | 'classical';
@@ -86,7 +87,7 @@ function makeSteps(notes: string[]): RiffStep[] {
 }
 
 export function GuitarEngine() {
-  const { key, scale } = useProjectStore();
+  const { key, scale, bpm } = useProjectStore();
   const [style, setStyle] = useState<GuitarStyle>('rhythm');
   const [stringCount, setStringCount] = useState<StringCount>(6);
   const [tuning, setTuning] = useState<Tuning>('standard');
@@ -320,9 +321,13 @@ export function GuitarEngine() {
         <button onClick={previewRiff}
           className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-purple/20 border border-purple/40 text-purple hover:bg-purple/30 transition-all"
         >PREVIEW RIFF</button>
-        <button className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-all">
-          EXPORT MIDI
-        </button>
+        <button
+          onClick={() => exportNotesMidi(
+            steps.filter(s => s.active).map((s, i) => ({ pitch: s.note, step: i, length: 1, velocity: 90 })),
+            bpm, 'guitar.mid'
+          )}
+          className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-all"
+        >EXPORT MIDI</button>
       </div>
     </div>
   );

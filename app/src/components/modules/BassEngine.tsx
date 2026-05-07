@@ -3,6 +3,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useProjectStore } from '@/store/projectStore';
 import { SectionTabs } from '@/components/ui/SectionTabs';
 import { playNote, getScaleNotes } from '@/lib/audio';
+import { exportNotesMidi } from '@/lib/midi';
 import { Knob } from '@/components/ui/Knob';
 
 type BassInstrument = 'synth' | '808' | 'bass_guitar' | 'sub_pad';
@@ -117,7 +118,7 @@ function OscilloscopeCanvas({ color, active }: { color: string; active: boolean 
 }
 
 export function BassEngine() {
-  const { key, scale, activeSection } = useProjectStore();
+  const { key, scale, activeSection, bpm } = useProjectStore();
   const [instrument, setInstrument] = useState<BassInstrument>('synth');
   const [waveform, setWaveform] = useState<Waveform>('saw');
   const [stringCount, setStringCount] = useState<StringCount>(4);
@@ -166,7 +167,9 @@ export function BassEngine() {
   }, [playStyle, scaleNotes]);
 
   const previewLine = () => {
-    steps.filter(s => s.active).forEach((s, i) => setTimeout(() => playNote(s.note, '16n', 'pad'), i * 150));
+    const dur = legato ? '8n' : '16n';
+    const spacing = legato ? 250 : 150;
+    steps.filter(s => s.active).forEach((s, i) => setTimeout(() => playNote(s.note, dur, 'pad'), i * spacing));
   };
 
   return (
@@ -374,9 +377,13 @@ export function BassEngine() {
           className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer transition-all"
           style={{ background: playing ? '#ff333322' : '#252428', border: `1px solid ${playing ? '#ff3333' : '#353437'}`, color: playing ? '#ff3333' : '#ffffff55' }}
         >{playing ? '■ STOP' : '▶ PLAY'}</button>
-        <button className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-all">
-          EXPORT MIDI
-        </button>
+        <button
+          onClick={() => exportNotesMidi(
+            steps.filter(s => s.active).map((s, i) => ({ pitch: s.note, step: i, length: legato ? 2 : 1, velocity: s.velocity })),
+            bpm, 'bass.mid'
+          )}
+          className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-all"
+        >EXPORT MIDI</button>
       </div>
     </div>
   );

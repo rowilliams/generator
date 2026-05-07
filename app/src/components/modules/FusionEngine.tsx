@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useProjectStore } from '@/store/projectStore';
 
 interface Producer {
   name: string;
@@ -92,6 +93,7 @@ function ProducerCard({ p, active, onClick }: { p: Producer; active: boolean; on
 }
 
 export function FusionEngine() {
+  const { setVibe, setBpm, setKey } = useProjectStore();
   const [tab, setTab] = useState<Tab>('styles');
   const [selectedA, setSelectedA] = useState<Producer>(PRODUCERS[0]);
   const [selectedB, setSelectedB] = useState<Producer>(PRODUCERS[9]);
@@ -100,6 +102,36 @@ export function FusionEngine() {
   const [intensity, setIntensity] = useState(40);
   const [focusSlot, setFocusSlot] = useState<'A' | 'B'>('A');
   const [browsing, setBrowsing] = useState<Producer | null>(PRODUCERS[0]);
+  const [fusionApplied, setFusionApplied] = useState(false);
+
+  const generateFusion = () => {
+    const ratioB = blendAB / 100;
+    const ratioA = 1 - ratioB;
+    const blendedDarkness = selectedA.darkness * ratioA + selectedB.darkness * ratioB;
+    const blendedEnergy   = selectedA.energy   * ratioA + selectedB.energy   * ratioB;
+    const blendedBpm      = (parseInt(selectedA.bpm) * ratioA + parseInt(selectedB.bpm) * ratioB);
+
+    // Pick the vibe that best matches blended darkness + energy
+    type VibeId = 'trap' | 'dark' | 'horror_cinematic' | 'boom_bap_old' | 'dark_boom_bap' | 'haunting_minimal' | 'grimey_boom_bap' | 'west_coast';
+    const vibeMap: Array<{ id: VibeId; d: number; e: number }> = [
+      { id: 'trap',             d: 65, e: 80 },
+      { id: 'dark',             d: 95, e: 40 },
+      { id: 'horror_cinematic', d: 99, e: 50 },
+      { id: 'boom_bap_old',     d: 40, e: 60 },
+      { id: 'dark_boom_bap',    d: 85, e: 55 },
+      { id: 'haunting_minimal', d: 80, e: 15 },
+      { id: 'grimey_boom_bap',  d: 70, e: 65 },
+      { id: 'west_coast',       d: 35, e: 60 },
+    ];
+    const closest = vibeMap.reduce((best, v) =>
+      Math.hypot(v.d - blendedDarkness, v.e - blendedEnergy) < Math.hypot(best.d - blendedDarkness, best.e - blendedEnergy) ? v : best
+    );
+
+    setVibe(closest.id);
+    setBpm(Math.round(Math.max(70, Math.min(180, blendedBpm || 130))));
+    setFusionApplied(true);
+    setTimeout(() => setFusionApplied(false), 2000);
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -262,9 +294,10 @@ export function FusionEngine() {
               </div>
             )}
 
-            <button className="w-full py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all shrink-0"
-              style={{ background: '#e9c34922', border: '1px solid #e9c34966', color: '#e9c349', boxShadow: '0 0 12px #e9c34944' }}>
-              GENERATE FUSION
+            <button onClick={generateFusion}
+              className="w-full py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all shrink-0"
+              style={{ background: fusionApplied ? '#39ff1422' : '#e9c34922', border: `1px solid ${fusionApplied ? '#39ff14' : '#e9c349'}`, color: fusionApplied ? '#39ff14' : '#e9c349', boxShadow: `0 0 12px ${fusionApplied ? '#39ff1444' : '#e9c34944'}` }}>
+              {fusionApplied ? '✓ FUSION APPLIED' : 'GENERATE FUSION'}
             </button>
           </div>
         </div>
