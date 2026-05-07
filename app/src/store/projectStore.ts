@@ -70,6 +70,7 @@ export interface ProjectStore {
   toggleDrumMute: (section: Section, trackIdx: number) => void;
   setDrumSwing: (swing: number) => void;
   setLoopBars: (bars: 4 | 8 | 16) => void;
+  clearDrumSection: (section: Section) => void;
   setChordSlot: (section: Section, slotIdx: number, chord: ChordSlot) => void;
 }
 
@@ -153,6 +154,10 @@ export const useProjectStore = create<ProjectStore>((set) => ({
 
   setDrumSwing: (drumSwing) => set({ drumSwing }),
   setLoopBars: (loopBars) => set({ loopBars }),
+  clearDrumSection: (section) => set((state) => {
+    const tracks = state.drumTracks[section].map(t => ({ ...t, steps: t.steps.map(s => ({ ...s, active: false })) }));
+    return { drumTracks: { ...state.drumTracks, [section]: tracks } };
+  }),
 
   setChordSlot: (section, slotIdx, chord) =>
     set((state) => {

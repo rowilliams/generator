@@ -16,7 +16,7 @@ const DAWS: DAW[] = [
   { name: 'LOGIC PRO',      short: 'LOGIC',      color: '#76d6d5', formats: ['AU','AAX'],              platform: ['Mac'],             icon: '♪' },
   { name: 'PRO TOOLS',      short: 'PRO TOOLS',  color: '#7090b0', formats: ['AAX','VST3'],            platform: ['Mac','Win'],       icon: '⊗' },
   { name: 'CUBASE',         short: 'CUBASE',     color: '#d4650a', formats: ['VST3','AU'],             platform: ['Mac','Win'],       icon: '⧖' },
-  { name: 'REAPER',         short: 'REAPER',     color: '#888888', formats: ['VST3','VST2','AU','LV2'],platform: ['Mac','Win','Linux'],icon: '▶' },
+  { name: 'REAPER',         short: 'REAPER',     color: '#7090b0', formats: ['VST3','VST2','AU','LV2'],platform: ['Mac','Win','Linux'],icon: '▶' },
   { name: 'STUDIO ONE',     short: 'STUDIO 1',   color: '#ff6b1a', formats: ['VST3','AU','AAX'],       platform: ['Mac','Win'],       icon: '♫' },
   { name: 'BITWIG',         short: 'BITWIG',     color: '#bf00ff', formats: ['VST3','CLAP','LV2'],     platform: ['Mac','Win','Linux'],icon: '⊛' },
   { name: 'GARAGEBAND',     short: 'GARAGE',     color: '#ff6b9d', formats: ['AU'],                    platform: ['Mac','iOS'],       icon: '♬' },
@@ -27,7 +27,7 @@ const FORMATS = ['VST3', 'AU', 'AAX', 'CLAP', 'LV2', 'VST2', 'Rack Ext'];
 
 const FORMAT_COLORS: Record<string, string> = {
   VST3: '#bf00ff', AU: '#76d6d5', AAX: '#7090b0',
-  CLAP: '#39ff14', LV2: '#888888', VST2: '#e9c349', 'Rack Ext': '#cc0000',
+  CLAP: '#39ff14', LV2: '#7090b0', VST2: '#e9c349', 'Rack Ext': '#cc0000',
 };
 
 interface ExportOption {

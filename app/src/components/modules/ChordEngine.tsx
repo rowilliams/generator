@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useProjectStore, Section } from '@/store/projectStore';
 import { SectionTabs } from '@/components/ui/SectionTabs';
 import { playNote, getScaleNotes, NOTES } from '@/lib/audio';
+import { exportChordsMidi } from '@/lib/midi';
 
 const CHORD_TYPES = ['min', 'maj', 'dim', 'aug', 'sus2', 'sus4', 'dom7', 'maj7', 'min7', 'min9', 'maj9', 'add9'];
 const ROMAN = ['i', 'ii', 'III', 'iv', 'V', 'VI', 'VII'];
@@ -37,11 +38,16 @@ interface ChordBlock {
   roman: string;
 }
 
+const EXT_INTERVALS: Record<string, number[]> = {
+  maj7: [11], min7: [10], dom7: [10], maj9: [11, 14], min9: [10, 13], add9: [14], '11th': [10, 17], '13th': [10, 21],
+};
+
 export function ChordEngine() {
-  const { activeSection, key, scale, vibe } = useProjectStore();
+  const { activeSection, key, scale, vibe, bpm } = useProjectStore();
   const [chords, setChords] = useState<ChordBlock[]>([
     { root: key, type: 'min', roman: 'i' },
   ]);
+  const [activeExts, setActiveExts] = useState<Set<string>>(new Set());
 
   const scaleNotes = getScaleNotes(key, scale);
 
@@ -63,8 +69,21 @@ export function ChordEngine() {
       `${NOTES[(noteIdx + 4) % 12]}3`,
       `${NOTES[(noteIdx + 7) % 12]}4`,
     ];
-    notes.forEach((n, i) => setTimeout(() => playNote(n, '2n', 'pad'), i * 20));
+    const extNotes = Array.from(activeExts).flatMap(ext =>
+      (EXT_INTERVALS[ext] ?? []).map(iv => `${NOTES[(noteIdx + iv) % 12]}4`)
+    );
+    [...notes, ...extNotes].forEach((n, i) => setTimeout(() => playNote(n, '2n', 'pad'), i * 15));
   };
+
+  const previewSection = () => {
+    chords.forEach((chord, i) => setTimeout(() => previewChord(chord), i * 1400));
+  };
+
+  const toggleExt = (ext: string) => setActiveExts(prev => {
+    const next = new Set(prev);
+    next.has(ext) ? next.delete(ext) : next.add(ext);
+    return next;
+  });
 
   const suggestions = SUGGESTIONS[vibe] || SUGGESTIONS.trap;
 
@@ -142,17 +161,27 @@ export function ChordEngine() {
       <div className="w-56 shrink-0 flex flex-col gap-3">
         <div className="bg-surface-low rounded-xl p-3">
           <div className="text-[9px] uppercase tracking-widest text-white/30 mb-2 font-bold">EXTENSIONS</div>
-          {['maj7', 'min7', 'dom7', 'maj9', 'min9', 'add9', '11th', '13th'].map(ext => (
-            <button key={ext} className="text-[9px] px-2 py-1 rounded m-0.5 cursor-pointer hover:bg-purple/20 transition-all border border-white/5 text-white/50 hover:text-purple hover:border-purple/30">
-              {ext}
-            </button>
-          ))}
+          <div className="flex flex-wrap gap-1">
+            {['maj7', 'min7', 'dom7', 'maj9', 'min9', 'add9', '11th', '13th'].map(ext => {
+              const on = activeExts.has(ext);
+              return (
+                <button key={ext} onClick={() => toggleExt(ext)}
+                  className="text-[9px] px-2 py-1 rounded cursor-pointer transition-all border font-bold"
+                  style={{ background: on ? '#bf00ff22' : 'transparent', borderColor: on ? '#bf00ff' : '#353437', color: on ? '#bf00ff' : '#ffffff50' }}>
+                  {ext}
+                </button>
+              );
+            })}
+          </div>
+          {activeExts.size > 0 && (
+            <div className="text-[7px] text-white/20 mt-2 uppercase tracking-wider">active on next preview</div>
+          )}
         </div>
         <div className="flex flex-col gap-2">
-          <button className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-purple/20 border border-purple/40 text-purple hover:bg-purple/30 transition-all">
+          <button onClick={previewSection} className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-purple/20 border border-purple/40 text-purple hover:bg-purple/30 transition-all">
             PREVIEW SECTION
           </button>
-          <button className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-all">
+          <button onClick={() => exportChordsMidi(chords, bpm)} className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-all">
             EXPORT MIDI
           </button>
         </div>

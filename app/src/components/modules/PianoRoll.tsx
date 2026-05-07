@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useMemo } from 'react';
 import { useProjectStore } from '@/store/projectStore';
 import { SectionTabs } from '@/components/ui/SectionTabs';
 import { playNote, getScaleNotes, NOTES } from '@/lib/audio';
+import { exportNotesMidi } from '@/lib/midi';
 
 type Tool = 'select' | 'draw' | 'erase';
 
@@ -38,7 +39,7 @@ const MOTIF_TOOLS = [
 ];
 
 export function PianoRoll() {
-  const { key, scale, vibe, loopBars } = useProjectStore();
+  const { key, scale, vibe, loopBars, bpm } = useProjectStore();
   const STEPS = loopBars * 16;
   const [notes, setNotes] = useState<Note[]>([]);
   const [tool, setTool] = useState<Tool>('draw');
@@ -79,6 +80,34 @@ export function PianoRoll() {
   }, [drawing]);
 
   const endDraw = useCallback(() => setDrawing(null), []);
+
+  const applyDarkTool = (label: string) => {
+    const targets = selectedIds.size > 0 ? notes.filter(n => selectedIds.has(n.id)) : notes;
+    const others = selectedIds.size > 0 ? notes.filter(n => !selectedIds.has(n.id)) : [];
+    const clamp = (i: number) => Math.max(0, Math.min(ALL_PITCHES.length - 1, i));
+
+    let modified: Note[];
+    if (label === 'REHARMONIZE DARK') {
+      // Tritone shift (+6 semitones = 6 pitch rows since ALL_PITCHES is semitone-ordered within each octave)
+      modified = targets.map(n => ({ ...n, pitch: ALL_PITCHES[clamp(pitchIdx(n.pitch) + 6)] }));
+    } else if (label === 'GHOST NOTES') {
+      const ghosts = targets.map(n => ({
+        ...n, id: `${n.id}-ghost`,
+        step: Math.max(0, n.step - 1),
+        velocity: Math.max(10, n.velocity - 35),
+        pitch: ALL_PITCHES[clamp(pitchIdx(n.pitch) + (Math.random() > 0.5 ? 1 : -1))],
+      }));
+      modified = [...targets, ...ghosts];
+    } else if (label === 'PITCH DRIFT') {
+      modified = targets.map(n => ({ ...n, pitch: ALL_PITCHES[clamp(pitchIdx(n.pitch) + (Math.random() > 0.5 ? 1 : -1))] }));
+    } else if (label === 'INTERVAL SHIFT') {
+      // Minor third down (3 semitones darker)
+      modified = targets.map(n => ({ ...n, pitch: ALL_PITCHES[clamp(pitchIdx(n.pitch) + 3)] }));
+    } else {
+      modified = targets;
+    }
+    setNotes([...others, ...modified]);
+  };
 
   const applyMotif = (action: string) => {
     const selected = notes.filter(n => selectedIds.has(n.id));
@@ -172,10 +201,10 @@ export function PianoRoll() {
                   className="flex items-center justify-end pr-1 cursor-pointer select-none shrink-0 transition-opacity hover:opacity-70"
                   style={{
                     height: ROW_H,
-                    background: isBlack ? '#111' : '#1c1b1e',
+                    background: isBlack ? '#0d0d0f' : '#1c1b1e',
                     borderBottom: '1px solid #0d0d0e',
                     fontSize: 8,
-                    color: inScale ? '#76d6d5' : isBlack ? '#444' : '#333',
+                    color: inScale ? '#76d6d5' : isBlack ? '#353437' : '#252428',
                     fontWeight: 'bold',
                   }}
                 >
@@ -239,6 +268,16 @@ export function PianoRoll() {
                 {i + 1}
               </div>
             ))}
+
+            {/* Empty state */}
+            {notes.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ top: ALL_PITCHES.length * ROW_H * 0.35 }}>
+                <div className="text-center">
+                  <div className="text-[10px] text-white/20 font-bold uppercase tracking-widest mb-1">DRAW TOOL ACTIVE</div>
+                  <div className="text-[9px] text-white/10 uppercase tracking-wider">Click the grid to place notes</div>
+                </div>
+              </div>
+            )}
 
             {/* Note blocks */}
             {notes.map(n => {
@@ -306,6 +345,7 @@ export function PianoRoll() {
                 <button
                   key={t.label}
                   title={t.desc}
+                  onClick={() => applyDarkTool(t.label)}
                   className="text-[8px] px-2 py-1.5 rounded cursor-pointer transition-all border text-left uppercase tracking-wider font-bold"
                   style={{ borderColor: '#8b000044', color: '#cc333388', background: '#8b000011' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#ff3333'; (e.currentTarget as HTMLElement).style.background = '#8b000022'; }}
@@ -331,23 +371,42 @@ export function PianoRoll() {
           </div>
 
           {/* Export */}
-          <button className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-all mt-auto">
+          <button
+            onClick={() => exportNotesMidi(notes, bpm)}
+            disabled={notes.length === 0}
+            className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-all mt-auto disabled:opacity-30 disabled:cursor-not-allowed"
+          >
             EXPORT MIDI
           </button>
         </div>
       </div>
 
       {/* Velocity lane */}
-      <div className="shrink-0 h-14 bg-surface-low rounded-xl overflow-hidden relative" style={{ marginLeft: 48 + 12 + 192 + 12 > 0 ? 0 : 0 }}>
-        <div className="text-[8px] uppercase tracking-widest text-white/20 font-bold absolute top-1 left-2">VELOCITY</div>
-        <div className="flex h-full items-end px-1 pt-4 gap-px overflow-hidden">
+      <div className="shrink-0 h-14 bg-surface-low rounded-xl overflow-hidden relative">
+        <div className="text-[8px] uppercase tracking-widest text-white/20 font-bold absolute top-1 left-2 pointer-events-none">VELOCITY — drag to edit</div>
+        <div
+          className="flex h-full items-end px-1 pt-4 gap-px overflow-hidden cursor-crosshair"
+          onMouseDown={e => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const setVelAtX = (clientX: number, clientY: number) => {
+              const stepIdx = Math.floor(((clientX - rect.left) / rect.width) * STEPS);
+              const newVel = Math.max(1, Math.min(127, Math.round((1 - (clientY - rect.top) / rect.height) * 127)));
+              setNotes(prev => prev.map(n => n.step === stepIdx ? { ...n, velocity: newVel } : n));
+            };
+            setVelAtX(e.clientX, e.clientY);
+            const onMove = (me: MouseEvent) => setVelAtX(me.clientX, me.clientY);
+            const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+          }}
+        >
           {Array.from({ length: STEPS }).map((_, si) => {
             const stepNotes = notes.filter(n => n.step === si);
             const vel = stepNotes.length ? Math.max(...stepNotes.map(n => n.velocity)) : 0;
             return (
               <div
                 key={si}
-                className="flex-1 rounded-t-sm transition-all"
+                className="flex-1 rounded-t-sm transition-none"
                 style={{
                   height: `${vel / 127 * 100}%`,
                   minHeight: vel ? 2 : 0,

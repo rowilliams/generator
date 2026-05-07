@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useProjectStore } from '@/store/projectStore';
 import { SectionTabs } from '@/components/ui/SectionTabs';
 import { playDrumHit, loadTone } from '@/lib/audio';
+import { exportDrumMidi } from '@/lib/midi';
 import { Knob } from '@/components/ui/Knob';
 
 const KIT_MODES = ['MINIMAL', 'STANDARD', 'TRAP', 'FULL'] as const;
@@ -23,7 +24,7 @@ const KIT_PRESETS: KitPreset[] = [
   { name: 'UK DRILL',        color: '#4a6650', pattern: { '808 KICK': [0,5,10,12], SNARE: [4,12], CLAP: [4], 'HI-HAT': [0,1,3,5,7,8,10,12,14], 'HAT OPEN': [11] } },
   { name: 'US DRILL',        color: '#7090b0', pattern: { '808 KICK': [0,4,9], SNARE: [4,12], CLAP: [], 'HI-HAT': [0,2,4,6,8,10,12,14], 'HAT OPEN': [7,15] } },
   { name: 'WEST COAST',      color: '#d4650a', pattern: { '808 KICK': [0,6,8], SNARE: [4,12], CLAP: [4,12], 'HI-HAT': [0,2,6,8,10,14], PERC: [3,7,11,15] } },
-  { name: 'EAST COAST GRIT', color: '#888888', pattern: { '808 KICK': [0,3,11], SNARE: [4,12], CLAP: [], 'HI-HAT': [2,6,10,14], 'HAT OPEN': [6], PERC: [1,9,13] } },
+  { name: 'EAST COAST GRIT', color: '#7090b0', pattern: { '808 KICK': [0,3,11], SNARE: [4,12], CLAP: [], 'HI-HAT': [2,6,10,14], 'HAT OPEN': [6], PERC: [1,9,13] } },
   { name: 'VINTAGE VINYL',   color: '#76d6d5', pattern: { '808 KICK': [0,6], SNARE: [4,12], CLAP: [4,12], 'HI-HAT': [0,4,8,12], 'HAT OPEN': [], PERC: [2,10] } },
   { name: 'MINIMAL ELEC',    color: '#aaccdd', pattern: { '808 KICK': [0], SNARE: [8], CLAP: [], 'HI-HAT': [0,8], 'HAT OPEN': [] } },
   { name: 'LIVE DRUMS',      color: '#ff6b9d', pattern: { '808 KICK': [0,2,9], SNARE: [4,6,12], CLAP: [], 'HI-HAT': [0,2,4,6,8,10,12,14], PERC: [5,13] } },
@@ -38,7 +39,7 @@ const KIT_TRACKS: Record<KitMode, string[]> = {
 };
 
 export function DrumMachine() {
-  const { drumTracks, activeSection, bpm, loopBars, toggleDrumStep, toggleDrumMute, drumSwing, setDrumSwing } = useProjectStore();
+  const { drumTracks, activeSection, bpm, loopBars, toggleDrumStep, toggleDrumMute, drumSwing, setDrumSwing, clearDrumSection } = useProjectStore();
   const totalSteps = loopBars * 16;
   const [kitMode, setKitMode] = useState<KitMode>('STANDARD');
   const [playing, setPlaying] = useState(false);
@@ -108,6 +109,38 @@ export function DrumMachine() {
       }
     });
   };
+
+  const applyFill = () => {
+    const fillPatterns: Record<string, number[]> = {
+      '808 KICK': [0, 6, 8, 10], SNARE: [4, 12, 14, 15], CLAP: [4, 12],
+      'HI-HAT': [0, 2, 4, 6, 8, 10, 12, 14], 'HAT OPEN': [6, 14], PERC: [1, 3, 9, 13],
+    };
+    tracks.forEach((track, ti) => {
+      const base = fillPatterns[track.name] ?? [0, 4, 8, 12];
+      const extra = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].filter(() => Math.random() > 0.75);
+      const target = new Set([...base.filter(() => Math.random() > 0.25), ...extra]);
+      for (let si = 0; si < 16; si++) {
+        const should = target.has(si);
+        if ((track.steps[si]?.active ?? false) !== should) toggleDrumStep(activeSection, ti, si);
+      }
+    });
+  };
+
+  const aiGenerate = () => {
+    const preset = KIT_PRESETS[Math.floor(Math.random() * KIT_PRESETS.length)];
+    applyPreset(preset);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && (e.target as HTMLElement).tagName !== 'INPUT' && (e.target as HTMLElement).tagName !== 'SELECT') {
+        e.preventDefault();
+        togglePlay();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [togglePlay]);
 
   const selTrack = visibleTracks.find(t => t.name === selectedTrack);
 
@@ -237,10 +270,10 @@ export function DrumMachine() {
         )}
 
         <div className="flex items-center gap-2 shrink-0 pt-2 border-t border-white/5">
-          <button className="px-3 py-1.5 text-xs rounded font-bold uppercase tracking-wider cursor-pointer bg-purple/10 border border-purple/30 text-purple hover:bg-purple/20 transition-all">AI GENERATE</button>
-          <button className="px-3 py-1.5 text-xs rounded font-bold uppercase tracking-wider cursor-pointer bg-teal/10 border border-teal/30 text-teal hover:bg-teal/20 transition-all">FILL</button>
-          <button className="px-3 py-1.5 text-xs rounded font-bold uppercase tracking-wider cursor-pointer bg-surface-high border border-white/10 text-white/50 hover:bg-surface-high/80 transition-all">CLEAR</button>
-          <button className="px-3 py-1.5 text-xs rounded font-bold uppercase tracking-wider cursor-pointer bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-all ml-auto">EXPORT MIDI</button>
+          <button onClick={aiGenerate} title="Apply a random kit preset" className="px-3 py-1.5 text-xs rounded font-bold uppercase tracking-wider cursor-pointer bg-purple/10 border border-purple/30 text-purple hover:bg-purple/20 transition-all">AI GENERATE</button>
+          <button onClick={applyFill} title="Randomize a drum fill pattern" className="px-3 py-1.5 text-xs rounded font-bold uppercase tracking-wider cursor-pointer bg-teal/10 border border-teal/30 text-teal hover:bg-teal/20 transition-all">FILL</button>
+          <button onClick={() => { if (playing) stopSequencer(); clearDrumSection(activeSection); }} title="Clear all active steps" className="px-3 py-1.5 text-xs rounded font-bold uppercase tracking-wider cursor-pointer bg-surface-high border border-white/10 text-white/50 hover:bg-surface-high/80 transition-all">CLEAR</button>
+          <button onClick={() => exportDrumMidi(tracks, bpm, totalSteps)} title="Download drum pattern as MIDI file" className="px-3 py-1.5 text-xs rounded font-bold uppercase tracking-wider cursor-pointer bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-all ml-auto">EXPORT MIDI</button>
         </div>
       </div>
 
