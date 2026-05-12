@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useProjectStore } from '@/store/projectStore';
 import { Knob } from '@/components/ui/Knob';
-import { loadTone, NOTES } from '@/lib/audio';
+import { loadTone, NOTES, getScaleNotes } from '@/lib/audio';
 
 type Waveform = 'sine' | 'sawtooth' | 'square' | 'triangle';
 type FilterType = 'lowpass' | 'highpass' | 'bandpass';
@@ -52,7 +52,7 @@ const KEYS_LAYOUT = [
 ];
 
 export function SynthEngine() {
-  const { bpm } = useProjectStore();
+  const { bpm, key, scale } = useProjectStore();
   const [preset, setPreset] = useState<SynthPreset>(PRESETS[0]);
   const [osc1Wave, setOsc1Wave] = useState<Waveform>(PRESETS[0].osc1);
   const [osc2Wave, setOsc2Wave] = useState<Waveform>(PRESETS[0].osc2);
@@ -102,15 +102,32 @@ export function SynthEngine() {
     const osc2 = new T.PolySynth(T.Synth, { oscillator: { type: osc2Wave }, envelope: env, volume: -14 }).connect(filt);
     if (detune > 0) osc2.set({ detune: detune * 10 });
 
-    osc1.triggerAttackRelease(pitch, '4n');
-    osc2.triggerAttackRelease(pitch, '4n');
-
-    const disposeMs = Math.max(2000, (release / 150) * 1000 + 1000);
-    setTimeout(() => {
-      [osc1, osc2, filt, del, rev].forEach(n => { try { n.dispose(); } catch {} });
-      setHeldNote(null);
-    }, disposeMs);
-  }, [osc1Wave, osc2Wave, detune, attack, decay, sustain, release, cutoff, resonance, filterType, reverbWet, delayWet, octave]);
+    const arpMs = (60 / bpm / 4) * 1000;
+    if (arpMode !== 'off') {
+      const raw = getScaleNotes(key, scale, octave);
+      let seq: string[];
+      if (arpMode === 'up') seq = raw;
+      else if (arpMode === 'down') seq = [...raw].reverse();
+      else if (arpMode === 'up_down') seq = [...raw, ...[...raw].reverse().slice(1)];
+      else seq = [...raw].sort(() => Math.random() - 0.5);
+      seq.forEach((n, i) => setTimeout(() => {
+        if (!osc1.disposed) osc1.triggerAttackRelease(n, '16n');
+        if (!osc2.disposed) osc2.triggerAttackRelease(n, '16n');
+      }, i * arpMs));
+      setTimeout(() => {
+        [osc1, osc2, filt, del, rev].forEach(n => { try { n.dispose(); } catch {} });
+        setHeldNote(null);
+      }, seq.length * arpMs + 500);
+    } else {
+      osc1.triggerAttackRelease(pitch, '4n');
+      osc2.triggerAttackRelease(pitch, '4n');
+      const disposeMs = Math.max(2000, (release / 150) * 1000 + 1000);
+      setTimeout(() => {
+        [osc1, osc2, filt, del, rev].forEach(n => { try { n.dispose(); } catch {} });
+        setHeldNote(null);
+      }, disposeMs);
+    }
+  }, [osc1Wave, osc2Wave, detune, attack, decay, sustain, release, cutoff, resonance, filterType, reverbWet, delayWet, octave, arpMode, bpm, key, scale]);
 
   return (
     <div className="flex gap-3 h-full p-4 overflow-hidden">

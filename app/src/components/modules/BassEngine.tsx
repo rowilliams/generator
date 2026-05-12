@@ -2,7 +2,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useProjectStore } from '@/store/projectStore';
 import { SectionTabs } from '@/components/ui/SectionTabs';
-import { playNote, getScaleNotes } from '@/lib/audio';
+import { playNote, getScaleNotes, loadTone } from '@/lib/audio';
 import { exportNotesMidi } from '@/lib/midi';
 import { Knob } from '@/components/ui/Knob';
 
@@ -140,6 +140,66 @@ export function BassEngine() {
   const activeColor = INSTRUMENTS.find(i => i.id === instrument)?.color || '#bf00ff';
   const tuning = STRING_TUNINGS[stringCount];
   const stringColors = STRING_COLORS[stringCount];
+
+  // Sequencer refs
+  const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playStepRef = useRef(0);
+  const playingRef = useRef(false);
+  const stepsRef = useRef(steps);
+  stepsRef.current = steps;
+  const bpmRef = useRef(bpm);
+  bpmRef.current = bpm;
+  const arpRef = useRef(arpPattern);
+  arpRef.current = arpPattern;
+  const scaleNotesRef = useRef(scaleNotes);
+  scaleNotesRef.current = scaleNotes;
+
+  const stopBassSequencer = useCallback(() => {
+    if (playTimerRef.current) clearTimeout(playTimerRef.current);
+    playTimerRef.current = null;
+    playingRef.current = false;
+    setPlaying(false);
+    playStepRef.current = 0;
+  }, []);
+
+  const scheduleBassStep = useRef<() => void>(() => {});
+  scheduleBassStep.current = () => {
+    const step = playStepRef.current;
+    const ms = (60 / bpmRef.current / 4) * 1000;
+    const arp = arpRef.current;
+
+    if (arp !== 'off') {
+      const notes = scaleNotesRef.current;
+      const len = notes.length;
+      let ni: number;
+      if (arp === 'up') ni = step % len;
+      else if (arp === 'down') ni = len - 1 - (step % len);
+      else if (arp === 'up_down') { const p = len * 2 - 2; const pos = step % p; ni = pos < len ? pos : p - pos; }
+      else ni = Math.floor(Math.random() * len);
+      playNote(notes[Math.max(0, Math.min(len - 1, ni))], '16n', 'pad');
+    } else {
+      const s = stepsRef.current[step];
+      if (s?.active && Math.random() * 100 < s.probability) playNote(s.note, '16n', 'pad');
+    }
+
+    playStepRef.current = (step + 1) % 16;
+    if (playingRef.current) playTimerRef.current = setTimeout(() => scheduleBassStep.current(), ms);
+  };
+
+  const startBassSequencer = useCallback(async () => {
+    await loadTone();
+    playStepRef.current = 0;
+    playingRef.current = true;
+    setPlaying(true);
+    playTimerRef.current = setTimeout(() => scheduleBassStep.current(), 0);
+  }, []);
+
+  const togglePlay = useCallback(() => {
+    if (playingRef.current) stopBassSequencer();
+    else startBassSequencer();
+  }, [startBassSequencer, stopBassSequencer]);
+
+  useEffect(() => () => { if (playTimerRef.current) clearTimeout(playTimerRef.current); }, []);
 
   const toggleStep = (idx: number) => setSteps(prev => prev.map((s, i) => i === idx ? { ...s, active: !s.active } : s));
   const toggleSlide = (idx: number) => setSteps(prev => prev.map((s, i) => i === idx ? { ...s, slide: !s.slide } : s));
@@ -373,7 +433,7 @@ export function BassEngine() {
         <button onClick={previewLine}
           className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer bg-purple/20 border border-purple/40 text-purple hover:bg-purple/30 transition-all"
         >PREVIEW LINE</button>
-        <button onClick={() => setPlaying(p => !p)}
+        <button onClick={togglePlay}
           className="w-full py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer transition-all"
           style={{ background: playing ? '#ff333322' : '#252428', border: `1px solid ${playing ? '#ff3333' : '#353437'}`, color: playing ? '#ff3333' : '#ffffff55' }}
         >{playing ? '■ STOP' : '▶ PLAY'}</button>

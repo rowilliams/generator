@@ -2,7 +2,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useProjectStore } from '@/store/projectStore';
 import { SectionTabs } from '@/components/ui/SectionTabs';
-import { playNote, getScaleNotes } from '@/lib/audio';
+import { playNote, getScaleNotes, loadTone } from '@/lib/audio';
 import { exportNotesMidi } from '@/lib/midi';
 import { Knob } from '@/components/ui/Knob';
 
@@ -106,11 +106,23 @@ export function GuitarEngine() {
     setSteps(prev => prev.map((s, i) => ({ ...s, ...pattern[i] })));
   }, [style, scaleNotes]);
 
-  const previewRiff = () => {
+  const previewRiff = async () => {
+    const T = await loadTone();
+    if (!T) return;
+    await T.start();
+    const volDb = (gain / 100 - 1) * 20;
+    const rev = new T.Reverb({ decay: 1.5 + (reverb / 100) * 3, wet: reverb / 100 }).toDestination();
+    const dist = new T.Distortion(gain / 200).connect(rev);
+    const synth = new T.PolySynth(T.Synth, {
+      oscillator: { type: ampModel === 'clean' || ampModel === 'jazz' || ampModel === 'acoustic_sim' ? 'triangle' : 'sawtooth' },
+      envelope: { attack: 0.005, decay: 0.15, sustain: 0.6, release: 0.3 },
+      volume: volDb,
+    }).connect(dist);
     const active = steps.filter(s => s.active);
     active.forEach((s, i) => {
-      setTimeout(() => playNote(s.note, '16n', 'melody'), i * 120);
+      setTimeout(() => { if (!synth.disposed) synth.triggerAttackRelease(s.note, '16n'); }, i * 120);
     });
+    setTimeout(() => { try { [synth, dist, rev].forEach(n => n.dispose()); } catch {} }, active.length * 120 + 1000);
   };
 
   const toggleStep = (idx: number) => {
