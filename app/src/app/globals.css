@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --color-void: #0a0a0c;
+  --color-surface: #131315;
+  --color-surface-low: #1c1b1e;
+  --color-surface-mid: #252428;
+  --color-surface-high: #353437;
+  --color-purple: #bf00ff;
+  --color-purple-dim: #7a00a6;
+  --color-gold: #e9c349;
+  --color-teal: #76d6d5;
+  --color-rose: #ff6b9d;
+  --color-crimson: #ff3333;
+  --color-orange: #ff6b1a;
+  --color-lime: #39ff14;
+  --color-cyan: #00ffff;
+  --color-amber: #ffbf00;
+  --color-steel: #7090b0;
+  --color-maroon: #8b0000;
+  --font-inter: "Inter", sans-serif;
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body {
+    background-color: #131315;
+    color: #e8e8ec;
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #353437; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #bf00ff66; }
+}
+
+@layer utilities {
+  .neon-purple { box-shadow: 0 0 8px #bf00ff88, 0 0 20px #bf00ff22; }
+  .neon-gold   { box-shadow: 0 0 8px #e9c34988, 0 0 20px #e9c34922; }
+  .neon-teal   { box-shadow: 0 0 8px #76d6d588, 0 0 20px #76d6d522; }
+  .neon-rose   { box-shadow: 0 0 8px #ff6b9d88, 0 0 20px #ff6b9d22; }
+  .neon-red    { box-shadow: 0 0 8px #ff333388, 0 0 20px #ff333322; }
+  .neon-green  { box-shadow: 0 0 8px #39ff1488, 0 0 20px #39ff1422; }
+  .neon-amber  { box-shadow: 0 0 8px #ffbf0088, 0 0 20px #ffbf0022; }
+
+  .glass      { background: rgba(28, 27, 30, 0.85); backdrop-filter: blur(12px); }
+  .glass-high { background: rgba(53, 52, 55, 0.7);  backdrop-filter: blur(8px); }
+  .glass-dark { background: rgba(10, 10, 12, 0.9);  backdrop-filter: blur(16px); }
+
+  .glow-text-purple { text-shadow: 0 0 12px #bf00ffaa; }
+  .glow-text-gold   { text-shadow: 0 0 12px #e9c349aa; }
+  .glow-text-teal   { text-shadow: 0 0 12px #76d6d5aa; }
+
+  .border-neon-purple { border-color: #bf00ff66; }
+  .border-neon-gold   { border-color: #e9c34966; }
+  .border-neon-teal   { border-color: #76d6d566; }
+
+  .step-btn-active {
+    background: #bf00ff;
+    box-shadow: 0 0 10px #bf00ffaa, inset 0 0 6px #ffffff22;
+  }
+  .step-btn-inactive {
+    background: #252428;
+    border: 1px solid #353437;
+  }
+  .step-btn-inactive:hover {
+    background: #353437;
+  }
+}
