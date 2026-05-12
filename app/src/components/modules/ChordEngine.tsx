@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useProjectStore, Section } from '@/store/projectStore';
 import { SectionTabs } from '@/components/ui/SectionTabs';
 import { playNote, getScaleNotes, NOTES } from '@/lib/audio';
@@ -43,11 +43,15 @@ const EXT_INTERVALS: Record<string, number[]> = {
 };
 
 export function ChordEngine() {
-  const { activeSection, key, scale, vibe, bpm } = useProjectStore();
+  const { activeSection, key, scale, vibe, bpm, setChordSlot } = useProjectStore();
   const [chords, setChords] = useState<ChordBlock[]>([
     { root: key, type: 'min', roman: 'i' },
   ]);
   const [activeExts, setActiveExts] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    chords.forEach((c, i) => setChordSlot(activeSection, i, { root: c.root, type: c.type, inversion: 0 }));
+  }, [chords, activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scaleNotes = getScaleNotes(key, scale);
 

@@ -68,17 +68,41 @@ export function VibeGenerator() {
 
   const active = VIBES.find(v => v.id === vibe) || VIBES[0];
 
+  const parseMidBpm = (s: string) => {
+    const parts = s.split('–').map(Number);
+    return parts.length === 2 ? Math.round((parts[0] + parts[1]) / 2) : parts[0];
+  };
+
   const selectVibe = (v: VibeConfig) => {
     if (blendMode) { setBlendTarget(v.id); return; }
     setVibe(v.id);
-    const parts = v.bpm.split('–').map(Number);
-    const mid = parts.length === 2 ? Math.round((parts[0] + parts[1]) / 2) : parts[0];
+    const mid = parseMidBpm(v.bpm);
     if (mid) setBpm(mid);
     setKey(v.key);
     setScale(v.scale);
   };
 
   const blendActive = blendTarget ? VIBES.find(v => v.id === blendTarget) : null;
+
+  const applyVibe = () => {
+    if (blendMode && blendActive) {
+      const bpmA = parseMidBpm(active.bpm);
+      const bpmB = parseMidBpm(blendActive.bpm);
+      setBpm(Math.round((bpmA + bpmB) / 2));
+      setKey(active.key);
+      setScale(active.scale);
+      const bD = (active.darkness + blendActive.darkness) / 2;
+      const bE = (active.energy + blendActive.energy) / 2;
+      const best = VIBES.reduce((b, v) =>
+        Math.hypot(v.darkness - bD, v.energy - bE) < Math.hypot(b.darkness - bD, b.energy - bE) ? v : b
+      );
+      setVibe(best.id);
+      setBlendMode(false);
+      setBlendTarget(null);
+    } else {
+      selectVibe(active);
+    }
+  };
 
   return (
     <div className="flex gap-4 h-full p-4 overflow-hidden">
@@ -209,11 +233,11 @@ export function VibeGenerator() {
         </div>
 
         <button
-          onClick={() => selectVibe(active)}
+          onClick={applyVibe}
           className="w-full py-3 rounded-xl font-black uppercase tracking-widest text-sm transition-all cursor-pointer shrink-0"
-          style={{ background: active.color, boxShadow: `0 0 20px ${active.color}88`, color: '#0a0a0c' }}
+          style={{ background: blendMode && blendActive ? '#e9c349' : active.color, boxShadow: `0 0 20px ${blendMode && blendActive ? '#e9c349' : active.color}88`, color: '#0a0a0c' }}
         >
-          APPLY VIBE
+          {blendMode && blendActive ? `BLEND: ${active.label} + ${blendActive.label}` : 'APPLY VIBE'}
         </button>
       </div>
     </div>

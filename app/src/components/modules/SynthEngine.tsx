@@ -33,7 +33,7 @@ const PRESETS: SynthPreset[] = [
   { name: 'PLUCK',        color: '#e9c349', osc1: 'sawtooth', osc2: 'square',   detune: 2,  attack: 0,  decay: 25, sustain: 0,  release: 40, cutoff: 80, resonance: 60, filterEnv: 80, reverbWet: 30, delayWet: 40 },
   { name: 'ACID',         color: '#39ff14', osc1: 'sawtooth', osc2: 'sawtooth', detune: 0,  attack: 5,  decay: 20, sustain: 40, release: 15, cutoff: 50, resonance: 90, filterEnv: 90, reverbWet: 15, delayWet: 20 },
   { name: 'STRINGS',      color: '#76d6d5', osc1: 'sawtooth', osc2: 'sawtooth', detune: 15, attack: 60, decay: 40, sustain: 80, release: 70, cutoff: 55, resonance: 15, filterEnv: 30, reverbWet: 80, delayWet: 30 },
-  { name: 'HORROR BELL',  color: '#8b0000', osc1: 'sine',     osc2: 'triangle', detune: 7,  attack: 10, decay: 80, sustain: 20, release: 90, cutoff: 60, resonance: 40, filterEnv: 50, reverbWet: 90, delayWet: 50 },
+  { name: 'HORROR BELL',  color: '#ff3333', osc1: 'sine',     osc2: 'triangle', detune: 7,  attack: 10, decay: 80, sustain: 20, release: 90, cutoff: 60, resonance: 40, filterEnv: 50, reverbWet: 90, delayWet: 50 },
   { name: 'SUPER SAW',    color: '#ff6b1a', osc1: 'sawtooth', osc2: 'sawtooth', detune: 20, attack: 10, decay: 30, sustain: 75, release: 50, cutoff: 65, resonance: 25, filterEnv: 35, reverbWet: 40, delayWet: 25 },
 ];
 
@@ -85,15 +85,32 @@ export function SynthEngine() {
   const playKey = useCallback(async (note: string) => {
     const T = await loadTone();
     if (!T) return;
+    await T.start();
     const pitch = `${note}${octave}`;
     setHeldNote(pitch);
-    const synth = new T.PolySynth(T.Synth, {
-      oscillator: { type: osc1Wave },
-      envelope: { attack: attack / 200, decay: decay / 200, sustain: sustain / 100, release: release / 150 },
-    }).toDestination();
-    synth.triggerAttackRelease(pitch, '4n');
-    setTimeout(() => { synth.dispose(); setHeldNote(null); }, 1500);
-  }, [osc1Wave, attack, decay, sustain, release, octave]);
+
+    const env = { attack: attack / 200, decay: decay / 200, sustain: sustain / 100, release: release / 150 };
+    const rev = new T.Reverb({ decay: 2.0, wet: reverbWet / 100 }).toDestination();
+    const del = new T.FeedbackDelay({ delayTime: '8n', feedback: 0.3, wet: delayWet / 100 }).connect(rev);
+    const filt = new T.Filter({
+      type: filterType as BiquadFilterType,
+      frequency: 200 + (cutoff / 100) * 15000,
+      Q: 1 + (resonance / 100) * 20,
+    }).connect(del);
+
+    const osc1 = new T.PolySynth(T.Synth, { oscillator: { type: osc1Wave }, envelope: env, volume: -8 }).connect(filt);
+    const osc2 = new T.PolySynth(T.Synth, { oscillator: { type: osc2Wave }, envelope: env, volume: -14 }).connect(filt);
+    if (detune > 0) osc2.set({ detune: detune * 10 });
+
+    osc1.triggerAttackRelease(pitch, '4n');
+    osc2.triggerAttackRelease(pitch, '4n');
+
+    const disposeMs = Math.max(2000, (release / 150) * 1000 + 1000);
+    setTimeout(() => {
+      [osc1, osc2, filt, del, rev].forEach(n => { try { n.dispose(); } catch {} });
+      setHeldNote(null);
+    }, disposeMs);
+  }, [osc1Wave, osc2Wave, detune, attack, decay, sustain, release, cutoff, resonance, filterType, reverbWet, delayWet, octave]);
 
   return (
     <div className="flex gap-3 h-full p-4 overflow-hidden">
