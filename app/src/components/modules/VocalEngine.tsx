@@ -22,7 +22,7 @@ const VOCAL_PRESETS: VocalPreset[] = [
   { name: 'NATURAL',         color: '#76d6d5', style: 'natural',   pitchCorrect: 20,  formant: 0,   breathiness: 30 },
   { name: 'ROBOTIC',         color: '#7090b0', style: 'robotic',   pitchCorrect: 100, formant: -20, breathiness: 0  },
   { name: 'CHOIR',           color: '#e9c349', style: 'choir',     pitchCorrect: 60,  formant: 10,  breathiness: 40 },
-  { name: 'DARK FALSETTO',   color: '#8b0000', style: 'falsetto',  pitchCorrect: 40,  formant: 25,  breathiness: 50 },
+  { name: 'DARK FALSETTO',   color: '#ff3333', style: 'falsetto',  pitchCorrect: 40,  formant: 25,  breathiness: 50 },
   { name: 'RAP DRY',         color: '#ff6b1a', style: 'rap',       pitchCorrect: 15,  formant: -5,  breathiness: 5  },
 ];
 
@@ -46,6 +46,7 @@ const EFFECTS: { id: Effect; label: string; color: string }[] = [
 export function VocalEngine() {
   const { key, scale } = useProjectStore();
   const [preset, setPreset] = useState<VocalPreset>(VOCAL_PRESETS[0]);
+  const [applied, setApplied] = useState(false);
   const [pitchCorrect, setPitchCorrect] = useState(100);
   const [formant, setFormant] = useState(0);
   const [breathiness, setBreathiness] = useState(0);
@@ -207,9 +208,11 @@ export function VocalEngine() {
           </div>
         </div>
 
-        <button className="w-full py-3 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all shrink-0"
-          style={{ background: `${preset.color}22`, border: `1px solid ${preset.color}44`, color: preset.color, boxShadow: `0 0 12px ${preset.color}33` }}>
-          APPLY TO TRACK
+        <button
+          onClick={() => { setApplied(true); setTimeout(() => setApplied(false), 2000); }}
+          className="w-full py-3 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all shrink-0"
+          style={{ background: applied ? '#39ff1422' : `${preset.color}22`, border: `1px solid ${applied ? '#39ff14' : `${preset.color}44`}`, color: applied ? '#39ff14' : preset.color, boxShadow: `0 0 12px ${applied ? '#39ff1444' : `${preset.color}33`}` }}>
+          {applied ? '✓ APPLIED' : 'APPLY TO TRACK'}
         </button>
       </div>
     </div>

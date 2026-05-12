@@ -39,10 +39,15 @@ function makeInstruments(): Record<SectionId, Instrument[]> {
   return result;
 }
 
+const DYN_VOLUME: Record<Dynamics, number> = { pp: -24, p: -18, mp: -12, mf: -8, f: -4, ff: 0 };
+const ART_DURATION: Record<Articulation, string> = { legato: '4n', staccato: '16n', pizzicato: '8n', tremolo: '32n', 'col legno': '16n' };
+const ART_SUSTAIN: Record<Articulation, number> = { legato: 0.8, staccato: 0.05, pizzicato: 0.1, tremolo: 0.7, 'col legno': 0.05 };
+
 export function OrchestraEngine() {
   const [activeSection, setActiveSection] = useState<SectionId>('strings');
   const [articulation, setArticulation] = useState<Articulation>('legato');
   const [instruments, setInstruments] = useState<Record<SectionId, Instrument[]>>(makeInstruments);
+  const [ostinatoActive, setOstinatoActive] = useState(false);
 
   const updateInstrument = useCallback((section: SectionId, index: number, patch: Partial<Instrument>) => {
     setInstruments(prev => {
@@ -70,17 +75,49 @@ export function OrchestraEngine() {
 
   const anySolo = (section: SectionId) => instruments[section].some(i => i.solo);
 
+  const avgDynVolume = () => {
+    const active = instruments[activeSection].filter(i => !i.muted);
+    if (!active.length) return -12;
+    return active.reduce((sum, i) => sum + DYN_VOLUME[i.dynamics], 0) / active.length;
+  };
+
   const previewSection = async () => {
     const T = await loadTone();
     if (!T) return;
     await T.start();
     const { chord } = SECTION_META[activeSection];
+    const vol = avgDynVolume();
+    const sus = ART_SUSTAIN[articulation];
     const synth = new T.PolySynth(T.Synth, {
-      envelope: { attack: 0.1, decay: 0.3, sustain: 0.4, release: 1.0 },
-      volume: -12,
+      envelope: { attack: articulation === 'legato' ? 0.08 : 0.001, decay: 0.3, sustain: sus, release: 0.8 },
+      volume: vol,
     }).toDestination();
-    synth.triggerAttackRelease(chord, 1.5);
+    synth.triggerAttackRelease(chord, ART_DURATION[articulation]);
     setTimeout(() => synth.dispose(), 4000);
+  };
+
+  const generateOstinato = async () => {
+    if (ostinatoActive) return;
+    const T = await loadTone();
+    if (!T) return;
+    await T.start();
+    const { chord } = SECTION_META[activeSection];
+    const vol = avgDynVolume();
+    const dur = ART_DURATION[articulation];
+    const sus = ART_SUSTAIN[articulation];
+    const synth = new T.PolySynth(T.Synth, {
+      envelope: { attack: articulation === 'legato' ? 0.04 : 0.001, decay: 0.15, sustain: sus, release: 0.4 },
+      volume: vol,
+    }).toDestination();
+    // 8-note rhythmic ostinato pattern cycling through chord tones
+    const pattern = [0, 0, 2, 1, 0, 1, 2, 0];
+    setOstinatoActive(true);
+    pattern.forEach((ni, beat) => {
+      setTimeout(() => {
+        if (!synth.disposed) synth.triggerAttackRelease(chord[ni % chord.length], dur);
+      }, beat * 220);
+    });
+    setTimeout(() => { synth.dispose(); setOstinatoActive(false); }, 2400);
   };
 
   const meta = SECTION_META[activeSection];
@@ -268,17 +305,17 @@ export function OrchestraEngine() {
 
         {/* Buttons */}
         <button
-          onClick={() => alert('Ostinato pattern generated')}
+          onClick={generateOstinato}
           className="w-full rounded-lg py-2 text-[8px] font-black uppercase tracking-wider"
           style={{
-            background: `${meta.color}22`,
-            border: `1.5px solid ${meta.color}`,
-            color: meta.color,
+            background: ostinatoActive ? '#39ff1422' : `${meta.color}22`,
+            border: `1.5px solid ${ostinatoActive ? '#39ff14' : meta.color}`,
+            color: ostinatoActive ? '#39ff14' : meta.color,
             cursor: 'pointer',
-            boxShadow: `0 0 8px ${meta.color}33`,
+            boxShadow: `0 0 8px ${ostinatoActive ? '#39ff1444' : `${meta.color}33`}`,
           }}
         >
-          GENERATE OSTINATO
+          {ostinatoActive ? '♩ PLAYING…' : 'GENERATE OSTINATO'}
         </button>
 
         <button

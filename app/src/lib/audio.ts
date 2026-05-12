@@ -27,7 +27,7 @@ export async function playDrumHit(instrument: string, velocity = 100) {
   if (!T) return;
   await T.start();
 
-  const vol = (velocity / 127) * 0 - (1 - velocity / 127) * 20; // dBFS
+  const vol = (velocity / 127 - 1) * 20; // dBFS: vel 127→0, vel 0→-20
 
   switch (instrument) {
     case '808 KICK': {

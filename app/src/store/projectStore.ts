@@ -1,5 +1,6 @@
 'use client';
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export type Section = 'intro' | 'verse' | 'prehook' | 'hook' | 'bridge' | 'outro';
 export type Scale =
@@ -80,8 +81,8 @@ const DRUM_STEPS = 256; // max capacity: 16 bars × 16 steps
 const DEFAULT_TRACKS: DrumTrack[] = [
   { name: '808 KICK', color: '#ff3333', steps: Array(DRUM_STEPS).fill(null).map(() => ({ active: false, velocity: 100 })), muted: false, solo: false, volume: 100 },
   { name: 'SNARE',    color: '#ff6b1a', steps: Array(DRUM_STEPS).fill(null).map(() => ({ active: false, velocity: 90 })),  muted: false, solo: false, volume: 90  },
-  { name: 'CLAP',     color: '#ffbf00', steps: Array(DRUM_STEPS).fill(null).map(() => ({ active: false, velocity: 85 })),  muted: false, solo: false, volume: 85  },
-  { name: 'HI-HAT',  color: '#00ffff', steps: Array(DRUM_STEPS).fill(null).map(() => ({ active: false, velocity: 80 })),  muted: false, solo: false, volume: 80  },
+  { name: 'CLAP',     color: '#e9c349', steps: Array(DRUM_STEPS).fill(null).map(() => ({ active: false, velocity: 85 })),  muted: false, solo: false, volume: 85  },
+  { name: 'HI-HAT',  color: '#76d6d5', steps: Array(DRUM_STEPS).fill(null).map(() => ({ active: false, velocity: 80 })),  muted: false, solo: false, volume: 80  },
   { name: 'HAT OPEN',color: '#76d6d5', steps: Array(DRUM_STEPS).fill(null).map(() => ({ active: false, velocity: 75 })),  muted: false, solo: false, volume: 75  },
   { name: 'PERC',    color: '#e9c349', steps: Array(DRUM_STEPS).fill(null).map(() => ({ active: false, velocity: 80 })),  muted: false, solo: false, volume: 80  },
 ];
@@ -98,7 +99,7 @@ function makeDefaultChords(): Record<Section, ChordSlot[]> {
   ) as unknown as Record<Section, ChordSlot[]>;
 }
 
-export const useProjectStore = create<ProjectStore>((set) => ({
+export const useProjectStore = create<ProjectStore>()(persist((set) => ({
   bpm: 140,
   key: 'F#',
   scale: 'natural_minor',
@@ -165,4 +166,4 @@ export const useProjectStore = create<ProjectStore>((set) => ({
       prog[slotIdx] = chord;
       return { chordProgressions: { ...state.chordProgressions, [section]: prog } };
     }),
-}));
+}), { name: 'neon-obsidian-v1' }));

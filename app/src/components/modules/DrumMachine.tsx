@@ -50,8 +50,14 @@ export function DrumMachine() {
   const [decayValues, setDecayValues] = useState<Record<string, number>>({});
   const [reverbValues, setReverbValues] = useState<Record<string, number>>({});
   const [probValues, setProbValues] = useState<Record<string, number>>({});
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stepRef = useRef(0);
+  const bpmRef = useRef(bpm);
+  bpmRef.current = bpm;
+  const swingRef = useRef(drumSwing);
+  swingRef.current = drumSwing;
+  const probValuesRef = useRef(probValues);
+  probValuesRef.current = probValues;
 
   const tracks = drumTracks[activeSection] || [];
   const visibleNames = KIT_TRACKS[kitMode];
@@ -62,40 +68,43 @@ export function DrumMachine() {
   totalStepsRef.current = totalSteps;
 
   const stopSequencer = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (intervalRef.current) clearTimeout(intervalRef.current);
+    intervalRef.current = null;
     setPlaying(false);
     setCurrentStep(-1);
     stepRef.current = 0;
   }, []);
 
+  const scheduleStepRef = useRef<() => void>(() => {});
+  scheduleStepRef.current = () => {
+    const step = stepRef.current;
+    const base = (60 / bpmRef.current / 4) * 1000;
+    const swingAmt = (swingRef.current / 100) * 0.33;
+    const ms = base * (step % 2 === 1 ? 1 - swingAmt : 1 + swingAmt);
+    setCurrentStep(step);
+    visibleTracksRef.current.forEach(track => {
+      const prob = probValuesRef.current[track.name] ?? 100;
+      if (!track.muted && track.steps[step]?.active && Math.random() * 100 < prob) {
+        playDrumHit(track.name, track.steps[step].velocity);
+      }
+    });
+    stepRef.current = (step + 1) % totalStepsRef.current;
+    intervalRef.current = setTimeout(() => scheduleStepRef.current(), ms);
+  };
+
   const startSequencer = useCallback(async () => {
     await loadTone();
-    const ms = (60 / bpm / 4) * 1000;
     stepRef.current = 0;
-    intervalRef.current = setInterval(() => {
-      const step = stepRef.current;
-      setCurrentStep(step);
-      visibleTracksRef.current.forEach(track => {
-        const prob = probValues[track.name] ?? 100;
-        if (!track.muted && track.steps[step]?.active && Math.random() * 100 < prob) {
-          playDrumHit(track.name, track.steps[step].velocity);
-        }
-      });
-      stepRef.current = (step + 1) % totalStepsRef.current;
-    }, ms);
     setPlaying(true);
-  }, [bpm, probValues]);
+    intervalRef.current = setTimeout(() => scheduleStepRef.current(), 0);
+  }, []);
 
   const togglePlay = useCallback(() => {
     if (playing) stopSequencer();
     else startSequencer();
   }, [playing, startSequencer, stopSequencer]);
 
-  useEffect(() => {
-    if (playing) { stopSequencer(); startSequencer(); }
-  }, [bpm]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
+  useEffect(() => () => { if (intervalRef.current) clearTimeout(intervalRef.current); }, []);
 
   const applyPreset = (preset: KitPreset) => {
     setSelectedPreset(preset.name);

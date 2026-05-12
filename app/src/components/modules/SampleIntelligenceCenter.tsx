@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef } from 'react';
+import { useProjectStore } from '@/store/projectStore';
 
 interface DetectedInfo {
   bpm: number | null;
@@ -31,11 +32,13 @@ const ZONE_CONFIG: Record<ZoneType, { label: string; icon: string; color: string
 };
 
 export function SampleIntelligenceCenter() {
+  const { setBpm, setKey } = useProjectStore();
   const [droppedFiles, setDroppedFiles] = useState<DroppedFile[]>([]);
   const [draggingOver, setDraggingOver] = useState<ZoneType | null>(null);
   const [detected, setDetected] = useState<DetectedInfo>({ bpm: null, key: null, chord: null, stems: [] });
   const [analyzing, setAnalyzing] = useState(false);
   const [outputs, setOutputs] = useState<OutputBlock[]>([]);
+  const [actionFeedback, setActionFeedback] = useState<Record<string, boolean>>({});
   const fileRefs = useRef<Record<ZoneType, HTMLInputElement | null>>({ midi: null, audio: null, vocal: null });
 
   const handleDrop = (zone: ZoneType, e: React.DragEvent) => {
@@ -70,6 +73,18 @@ export function SampleIntelligenceCenter() {
       ]);
       setAnalyzing(false);
     }, 1800);
+  };
+
+  const flashAction = (label: string) => {
+    setActionFeedback(prev => ({ ...prev, [label]: true }));
+    setTimeout(() => setActionFeedback(prev => ({ ...prev, [label]: false })), 2000);
+  };
+
+  const warpToProject = () => {
+    if (!detected.bpm || !detected.key) return;
+    setBpm(detected.bpm);
+    setKey(detected.key);
+    flashAction('WARP TO PROJECT');
   };
 
   const clearAll = () => {
@@ -204,18 +219,21 @@ export function SampleIntelligenceCenter() {
       <div className="w-44 shrink-0 flex flex-col gap-2">
         <div className="text-[9px] uppercase tracking-widest text-white/30 font-bold">ACTIONS</div>
         {[
-          { label: 'EXTRACT MIDI',    color: '#bf00ff', disabled: !detected.bpm },
-          { label: 'DETECT CHORDS',   color: '#e9c349', disabled: !detected.bpm },
-          { label: 'SEPARATE STEMS',  color: '#76d6d5', disabled: !detected.bpm },
-          { label: 'WARP TO PROJECT', color: '#39ff14', disabled: !detected.bpm },
-          { label: 'KEY MATCH',       color: '#ff6b9d', disabled: !detected.bpm },
-        ].map(a => (
-          <button key={a.label} disabled={a.disabled}
-            className="w-full px-3 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider cursor-pointer transition-all text-left"
-            style={{ background: a.disabled ? '#1c1b1e' : `${a.color}11`, border: `1px solid ${a.disabled ? '#353437' : `${a.color}44`}`, color: a.disabled ? '#ffffff22' : a.color }}>
-            {a.label}
-          </button>
-        ))}
+          { label: 'EXTRACT MIDI',    color: '#bf00ff', disabled: !detected.bpm, action: () => flashAction('EXTRACT MIDI') },
+          { label: 'DETECT CHORDS',   color: '#e9c349', disabled: !detected.bpm, action: () => flashAction('DETECT CHORDS') },
+          { label: 'SEPARATE STEMS',  color: '#76d6d5', disabled: !detected.bpm, action: () => flashAction('SEPARATE STEMS') },
+          { label: 'WARP TO PROJECT', color: '#39ff14', disabled: !detected.bpm, action: warpToProject },
+          { label: 'KEY MATCH',       color: '#ff6b9d', disabled: !detected.bpm, action: () => { setKey(detected.key!); flashAction('KEY MATCH'); } },
+        ].map(a => {
+          const done = actionFeedback[a.label];
+          return (
+            <button key={a.label} disabled={a.disabled} onClick={() => !a.disabled && a.action()}
+              className="w-full px-3 py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-wider cursor-pointer transition-all text-left"
+              style={{ background: done ? '#39ff1411' : a.disabled ? '#1c1b1e' : `${a.color}11`, border: `1px solid ${done ? '#39ff14' : a.disabled ? '#353437' : `${a.color}44`}`, color: done ? '#39ff14' : a.disabled ? '#ffffff22' : a.color }}>
+              {done ? `✓ ${a.label}` : a.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

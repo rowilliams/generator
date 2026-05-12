@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import { exportChordsMidi } from '@/lib/midi';
+import { useProjectStore } from '@/store/projectStore';
 
 interface DAW {
   name: string;
@@ -46,9 +48,26 @@ const EXPORT_OPTIONS: ExportOption[] = [
 ];
 
 export function DAWIntegrationHub() {
+  const { bpm, chordProgressions, activeSection } = useProjectStore();
   const [selectedDAW, setSelectedDAW] = useState<DAW>(DAWS[0]);
   const [selectedFormat, setSelectedFormat] = useState<string>('VST3');
   const [selectedExports, setSelectedExports] = useState<Set<string>>(new Set(['STEMS', 'MIDI PACK']));
+  const [exporting, setExporting] = useState(false);
+  const [exported, setExported] = useState(false);
+
+  const runExport = () => {
+    if (exporting || exported) return;
+    setExporting(true);
+    setTimeout(() => {
+      if (selectedExports.has('MIDI PACK')) {
+        const chords = (chordProgressions[activeSection] || []).map(c => ({ root: c.root, type: c.type, roman: 'i' }));
+        if (chords.length > 0) exportChordsMidi(chords, bpm);
+      }
+      setExporting(false);
+      setExported(true);
+      setTimeout(() => setExported(false), 2500);
+    }, 800);
+  };
 
   const toggleExport = (label: string) => {
     setSelectedExports(prev => {
@@ -93,7 +112,7 @@ export function DAWIntegrationHub() {
               <div className="flex flex-wrap gap-1">
                 {selectedDAW.formats.map(f => (
                   <span key={f} className="text-[8px] font-bold px-2 py-0.5 rounded-full"
-                    style={{ background: `${FORMAT_COLORS[f] ?? '#888'}22`, color: FORMAT_COLORS[f] ?? '#888', border: `1px solid ${FORMAT_COLORS[f] ?? '#888'}44` }}>
+                    style={{ background: `${FORMAT_COLORS[f] ?? '#353437'}22`, color: FORMAT_COLORS[f] ?? '#7090b0', border: `1px solid ${FORMAT_COLORS[f] ?? '#353437'}44` }}>
                     {f}
                   </span>
                 ))}
@@ -182,9 +201,10 @@ export function DAWIntegrationHub() {
           </div>
         </div>
 
-        <button className="w-full py-3 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all shrink-0"
-          style={{ background: selectedDAW.color, color: '#0a0a0c', boxShadow: `0 0 16px ${selectedDAW.color}66` }}>
-          EXPORT TO {selectedDAW.short}
+        <button onClick={runExport}
+          className="w-full py-3 rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all shrink-0"
+          style={{ background: exported ? '#39ff1422' : exporting ? '#25242888' : selectedDAW.color, color: exported ? '#39ff14' : exporting ? '#ffffff44' : '#0a0a0c', border: exported ? '1px solid #39ff14' : 'none', boxShadow: exported ? '0 0 12px #39ff1444' : exporting ? 'none' : `0 0 16px ${selectedDAW.color}66` }}>
+          {exported ? '✓ EXPORT READY' : exporting ? 'PREPARING…' : `EXPORT TO ${selectedDAW.short}`}
         </button>
       </div>
     </div>
